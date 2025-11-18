@@ -1,50 +1,58 @@
-const puppeteer = require("puppeteer");
-const fs = require("fs");
-const path = require("path");
+// server.js
+const express = require("express");
+// Import the puppeteer function from your file
+const runPuppeteer = require("./puppeteerScript"); 
 
-async function runPuppeteer() {
-    // Find installed Chrome dynamically
-    const chromeBasePath = "/opt/render/.cache/puppeteer/chrome";
+const app = express();
+// IMPORTANT: Render sets the PORT environment variable
+const PORT = process.env.PORT || 3000; 
 
-    const versions = fs.readdirSync(chromeBasePath);
-    const versionFolder = versions[0]; // pick first installed version
+// --- Middleware (Optional, but good practice) ---
+app.use(express.json());
 
-    const executablePath = path.join(
-        chromeBasePath,
-        versionFolder,
-        "chrome-linux64",
-        "chrome"
-    );
+// --- Routes ---
 
-    console.log("Using Chrome path:", executablePath);
-
-    const browser = await puppeteer.launch({
-        headless: true,
-        executablePath,
-        args: [
-            "--no-sandbox",
-            "--disable-setuid-sandbox",
-            "--disable-gpu",
-            "--disable-dev-shm-usage"
-        ]
+// 1. Root/Health Check Route
+// Render will check this route to ensure your service is alive
+app.get("/", (req, res) => {
+    res.status(200).send({
+        status: "OK",
+        message: "Puppeteer Web Service is running. Use /run-script to execute the task."
     });
+});
 
-    const page = await browser.newPage();
+// 2. Route to run the Puppeteer script
+app.get("/run-script", async (req, res) => {
+    console.log("--- Starting Puppeteer Script Execution ---");
+    
+    try {
+        // Execute the imported function
+        const result = await runPuppeteer();
+        
+        console.log(`Script finished. Result: ${result}`);
+        
+        res.status(200).send({
+            status: "Success",
+            message: result,
+            note: "The browser was opened and closed successfully."
+        });
 
-    await page.goto(
-        "https://skillsfuture.gobusiness.gov.sg/support-and-programmes/talenttrack?utm_source=fork&utm_medium=banner&utm_campaign=fy25-employercampaign&utm_term=talenttrack-consider&dclid=CL6VsMb6-pADFTn_cwEdZ0ojLg&gad_source=7",
-        { waitUntil: "networkidle2" }
-    );
+    } catch (error) {
+        // Log the error for debugging on Render
+        console.error("!!! Puppeteer Execution FAILED !!!", error);
+        
+        res.status(500).send({
+            status: "Error",
+            message: "An error occurred during Puppeteer execution. Check server logs.",
+            details: error.message
+        });
+    }
+});
 
-    // Auto-click link
-    await page.evaluate(() => {
-        const link = document.querySelector('a[href="#introduction"]');
-        if (link) link.click();
-    });
 
-    await browser.close();
+// --- Server Listener ---
 
-    return "Auto-click successful";
-}
-
-module.exports = runPuppeteer;
+// Start the server and listen on the required port
+app.listen(PORT, () => {
+    console.log(`🚀 Server listening on port ${PORT}`);
+});
