@@ -1,7 +1,7 @@
-// server.js (Change the cors middleware setup)
+// server.js (The complete and correct file)
 const express = require("express");
 const runPuppeteer = require("./puppeteerScript"); 
-const cors = require("cors"); 
+const cors = require("cors"); // <--- THIS LINE IS CRUCIAL!
 
 const app = express();
 const PORT = process.env.PORT || 3000; 
@@ -11,7 +11,6 @@ const allowedOrigins = ['https://dainty-swan-383ffc.netlify.app'];
 
 const corsOptions = {
   origin: function (origin, callback) {
-    // allow requests with no origin (like mobile apps or curl) or if the origin is in our allowed list
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
@@ -19,7 +18,7 @@ const corsOptions = {
     }
   },
   methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-  credentials: true, // If you need cookies or authorization headers
+  credentials: true,
   optionsSuccessStatus: 204
 };
 
@@ -27,7 +26,40 @@ const corsOptions = {
 app.use(cors(corsOptions));
 // ----------------------
 
-app.use(express.json());
+app.use(express.json()); // For parsing application/json
 
-// ... rest of your routes (app.get("/", ...), app.get("/run-script", ...))
-// ... and server listener (app.listen(PORT, ...))
+// --- Routes ---
+app.get("/", (req, res) => {
+    res.status(200).send({
+        status: "OK",
+        message: "Puppeteer Web Service is running. Use /run-script to execute the task."
+    });
+});
+
+app.get("/run-script", async (req, res) => {
+    console.log("--- Starting Puppeteer Script Execution ---");
+    
+    try {
+        const result = await runPuppeteer();
+        // ... (Success response code) ...
+        res.status(200).send({
+            status: "Success",
+            message: result,
+            note: "The browser was opened and closed successfully."
+        });
+    } catch (error) {
+        // ... (Error response code) ...
+        console.error("!!! Puppeteer Execution FAILED !!!", error);
+        res.status(500).send({
+            status: "Error",
+            message: "An error occurred during Puppeteer execution. Check server logs.",
+            details: error.message
+        });
+    }
+});
+
+
+// --- Server Listener ---
+app.listen(PORT, () => {
+    console.log(`🚀 Server listening on port ${PORT}`);
+});
