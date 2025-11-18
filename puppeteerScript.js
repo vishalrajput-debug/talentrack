@@ -1,31 +1,41 @@
-const puppeteer = require("puppeteer");
+// puppeteerScript.js
+const puppeteer = require("puppeteer-core"); // Using core instead of the full package
+const chromium = require("@sparticuz/chromium"); // Imports the custom Chromium executable
 
 module.exports = async function runPuppeteer() {
+    let browser;
+    try {
+        // --- Launch configuration updated for Render ---
+        browser = await puppeteer.launch({
+            // Pass the arguments, viewport, and executable path from the chromium package
+            args: [...chromium.args, "--hide-scrollbars", "--disable-web-security"],
+            defaultViewport: chromium.defaultViewport,
+            executablePath: await chromium.executablePath(), // Crucial for finding the browser
+            headless: chromium.headless, // Uses true or 'new' as determined by chromium
+            ignoreHTTPSErrors: true,
+        });
+        // ----------------------------------------------
 
-    const browser = await puppeteer.launch({
-        headless: "new",
-        args: [
-            "--no-sandbox",
-            "--disable-setuid-sandbox",
-            "--disable-gpu",
-            "--disable-dev-shm-usage"
-        ]
-    });
+        const page = await browser.newPage();
 
-    const page = await browser.newPage();
+        await page.goto("https://skillsfuture.gobusiness.gov.sg/support-and-programmes/talenttrack?utm_source=fork&utm_medium=banner&utm_campaign=fy25-employercampaign&utm_term=talenttrack-consider&dclid=CL6VsMb6-pADFTn_cwEdZ0ojLg&gad_source=7", {
+            waitUntil: "networkidle0"
+        });
 
-    await page.goto("https://skillsfuture.gobusiness.gov.sg/support-and-programmes/talenttrack?utm_source=fork&utm_medium=banner&utm_campaign=fy25-employercampaign&utm_term=talenttrack-consider&dclid=CL6VsMb6-pADFTn_cwEdZ0ojLg&gad_source=7", {
-        waitUntil: "networkidle0"
-    });
+        await page.waitForSelector('a[href="#introduction"]');
 
-    await page.waitForSelector('a[href="#introduction"]');
+        await page.click('a[href="#introduction"]');
 
-    await page.click('a[href="#introduction"]');
-
-    // optional screenshot for debugging
-    // await page.screenshot({ path: "debug.png" });
-
-    await browser.close();
-
-    return "Click executed successfully";
+        return "Click executed successfully";
+        
+    } catch (error) {
+        console.error("Error inside runPuppeteer:", error);
+        // Throw the error so the Express server can catch it and return a 500
+        throw error; 
+    } finally {
+        // Always ensure the browser closes
+        if (browser) {
+            await browser.close();
+        }
+    }
 };
